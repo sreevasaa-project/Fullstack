@@ -2,13 +2,13 @@
 
 A premium, high-efficiency production tracking system designed for printing operations. This application streamlines the workflow between operators and managers through real-time job card tracking and QR code integration.
 
-## ✨ Key Features
+## Key Features
 - **Operator Entry Workflow:** A seamless 5-step guided process for status updates.
 - **QR Code Scanning:** Integrated camera support for instant employee and job card verification.
 - **Job Lookup:** Real-time search for managers to track project completion percentages.
 - **Premium UI:** Clean, professional aesthetic using glassmorphism and modern typography.
 
-## 🚀 How to Run
+## How to Run
 
 Follow these steps to get the application running on your computer.
 
@@ -48,7 +48,7 @@ npm run dev
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 - **Frontend:** React 19 (Vite)
 - **Scanner:** @yudiel/react-qr-scanner
 - **Styling:** Vanilla CSS with Dynamic Inline Styles

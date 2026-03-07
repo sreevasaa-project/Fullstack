@@ -150,7 +150,7 @@ function TopBar({ title, sub }) {
 
 /* ── OPERATOR PAGE ──────────────────────────────────────────── */
 function OperatorPage({ state, setState, jobs }) {
-  const { step, authMode, empId, empName, jobCard, machine, status, scannerActive, scanError } = state;
+  const { step, authMode, empId, jobLookupNumber, jobCard, machine, status, scannerActive, scanError } = state;
 
   const update = (patch) => setState(prev => ({ ...prev, ...patch }));
 
@@ -170,7 +170,7 @@ function OperatorPage({ state, setState, jobs }) {
       if (step === 1 && data.startsWith('EMP-')) {
         const empData = data.split(':');
         if (empData.length >= 2) {
-          update({ empId: empData[0], empName: empData[1], scannerActive: false, scanError: "" });
+          update({ empId: empData[0], jobLookupNumber: "", scannerActive: false, scanError: "" });
           setQrAuthDone(true);
           setTimeout(() => update({ step: 2 }), 500);
         } else {
@@ -257,7 +257,7 @@ function OperatorPage({ state, setState, jobs }) {
                 {authMode === "id" ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                     <Input label="EMPLOYEE ID" placeholder="e.g. EMP-042" value={empId} onChange={v => update({ empId: v })} mono />
-                    <Input label="FULL NAME" placeholder="Your full name" value={empName} onChange={v => update({ empName: v })} />
+                    <Input label="JOB LOOKUP NUMBER" placeholder="e.g. JC-4821" value={jobLookupNumber} onChange={v => update({ jobLookupNumber: v })} mono />
                   </div>
                 ) : (
                   <div style={{ border: `2px solid ${C.accent}`, borderRadius: 14, padding: "16px", background: C.white }}>
@@ -306,12 +306,13 @@ function OperatorPage({ state, setState, jobs }) {
                 <button
                   onClick={() => {
                     const validId = empId.startsWith("EMP-");
-                    if (authMode === "id" && validId && empName) update({ step: 2 });
+                    const validJC = jobLookupNumber.startsWith("JC-");
+                    if (authMode === "id" && validId && validJC) update({ step: 2 });
                     if (authMode === "qr" && qrAuthDone) update({ step: 2 });
                   }}
                   style={{
                     marginTop: 24, width: "100%", padding: "13px", borderRadius: 11, border: "none", background: C.accent, color: C.white, fontWeight: 700, fontSize: 15, fontFamily: "'DM Sans',sans-serif", cursor: "pointer",
-                    opacity: (authMode === "id" ? (empId.startsWith("EMP-") && empName) : qrAuthDone) ? 1 : 0.4
+                    opacity: (authMode === "id" ? (empId.startsWith("EMP-") && jobLookupNumber.startsWith("JC-")) : qrAuthDone) ? 1 : 0.4
                   }}>
                   Authenticate & Continue →
                 </button>
@@ -322,7 +323,7 @@ function OperatorPage({ state, setState, jobs }) {
             {step === 2 && (
               <div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: C.text, fontFamily: "'Lora',serif", marginBottom: 4 }}>Job Card Number</div>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Verified as: <strong style={{ color: C.accent }}>{empName || "Operator"}</strong> ({empId || "via QR"})</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Verified ID: <strong style={{ color: C.accent }}>{empId || "via QR"}</strong></div>
                 <div style={{ height: 1, background: C.border, margin: "12px 0 20px" }} />
 
                 <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
@@ -482,7 +483,7 @@ function OperatorPage({ state, setState, jobs }) {
                       // Logic to update the shared job state
                       const updatedJobs = jobs.map(j => {
                         if (j.id === jobCard) {
-                          return { ...j, status, time: now(), progress: status === "Completed" ? 100 : j.progress, operator: empName, operatorId: empId };
+                          return { ...j, status, time: now(), progress: status === "Completed" ? 100 : j.progress, operator: empId, operatorId: empId };
                         }
                         return j;
                       });
@@ -504,10 +505,11 @@ function OperatorPage({ state, setState, jobs }) {
                 <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Status synced with the production database</div>
                 <div style={{ background: "#f8faf9", border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px", textAlign: "left", display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
                   {[
-                    ["Job Card", jobCard, "'DM Mono',monospace"],
-                    ["Operator", `${empName} (${empId})`, "'DM Sans',sans-serif"],
+                    ["Job Lookup Number", jobLookupNumber || "N/A", "'DM Mono',monospace"],
+                    ["Operator ID", empId, "'DM Sans',sans-serif"],
                     ["Machine", machine, "'DM Sans',sans-serif"],
                     ["Status", status, "'DM Sans',sans-serif"],
+                    ["Job Card", jobCard, "'DM Mono',monospace"],
                     ["Timestamp", now() + " · " + new Date().toLocaleDateString("en-IN"), "'DM Mono',monospace"],
                   ].map(([k, v, f]) => (
                     <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
@@ -519,7 +521,7 @@ function OperatorPage({ state, setState, jobs }) {
                 <button onClick={() => {
                   setState(prev => ({
                     ...prev,
-                    step: 1, authMode: "id", empId: "", empName: "", jobCard: "", machine: "", status: "", scannerActive: false, scanError: ""
+                    step: 1, authMode: "id", empId: "", jobLookupNumber: "", jobCard: "", machine: "", status: "", scannerActive: false, scanError: ""
                   }));
                   setQrAuthDone(false);
                   setQrJobDone(false);
@@ -677,7 +679,7 @@ export default function App() {
     step: 1,
     authMode: "id",
     empId: "",
-    empName: "",
+    jobLookupNumber: "",
     jobCard: "",
     machine: "",
     status: "",

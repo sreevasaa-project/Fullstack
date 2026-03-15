@@ -1,0 +1,10 @@
+{
+  "name": "sreevasa-printech-forked",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix printech-app run dev",
+    "build": "npm --prefix printech-app run build",
+    "preview": "npm --prefix printech-app run preview",
+    "lint": "npm --prefix printech-app run lint"
+  }
+}

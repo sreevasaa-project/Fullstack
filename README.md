@@ -55,9 +55,9 @@ npm install
 ### 4. Start the Application
 Launch the development server:
 ```bash
-cd printech-app
 npm run dev
 ```
+
 
 ### 5. Access the App
 - The terminal will display a link like **`http://localhost:5173`**.

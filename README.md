@@ -55,6 +55,7 @@ npm install
 ### 4. Start the Application
 Launch the development server:
 ```bash
+cd printech-app
 npm run dev
 ```
 

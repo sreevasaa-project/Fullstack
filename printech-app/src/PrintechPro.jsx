@@ -701,10 +701,6 @@ function OperatorPage({ state, setState }) {
                     disabled={loading || !status}
                     onClick={async () => {
                       if (!status) return;
-<<<<<<< HEAD
-=======
-
->>>>>>> upstream/main
                       if (window.PRINTECH_DEV_MODE) {
                         update({ loading: true });
                         setTimeout(() => update({ step: 5, loading: false }), 800);
@@ -718,33 +714,7 @@ function OperatorPage({ state, setState }) {
 
                       update({ loading: true, error: "" });
                       try {
-<<<<<<< HEAD
                         const machineWorkOrderId = resolveMachineWorkOrderId();
-=======
-                        const formData = new URLSearchParams();
-
-                        // Use the status mapping if needed, or send raw status ID
-                        // The API expects 'workorderId' and 'workorderStatus'
-                        // Priority: selected machine's workOrderId > currentJobData's workOrderId
-                        const targetOrderId = state.selectedMachineObj?.work_order_id ||
-                          state.selectedMachineObj?.workOrderId ||
-                          state.selectedMachineObj?.workOrder_id ||
-                          state.selectedMachineObj?.id ||
-                          currentJobData?.workOrderId ||
-                          currentJobData?.workorder_id;
-
-                        if (!targetOrderId) {
-                          update({ error: "Missing Work Order ID", loading: false });
-                          return;
-                        }
-
-                        formData.append("workorderId", targetOrderId);
-                        formData.append("workorderStatus", status);
-                        formData.append("empCode", empId || localStorage.getItem("printech_emp_id") || "EMP0033");
-                        formData.append("token", apiToken);
-
-                        console.log("Sending status update:", { workorderId: targetOrderId, workorderStatus: status, token: apiToken });
->>>>>>> upstream/main
 
                         const machineWorkOrderIdStr = String(machineWorkOrderId ?? "").trim();
                         const statusStr = String(status ?? "").trim();
@@ -772,7 +742,6 @@ function OperatorPage({ state, setState }) {
                           body: formData
                         });
 
-<<<<<<< HEAD
                         let data = null;
                         let rawText = "";
                         const contentType = res.headers.get("content-type") || "";
@@ -804,28 +773,6 @@ function OperatorPage({ state, setState }) {
                         }
                       } catch (err) {
                         update({ error: err?.message || "Failed to update status", loading: false });
-=======
-                        // Treat HTTP success as success, especially if the body is empty
-                        if (res.ok) {
-                          try {
-                            const text = await res.text();
-                            console.log("Status update response:", text);
-                            // Even if we fail to parse JSON, if it's 200 OK, we count it as success
-                            update({ step: 5, loading: false });
-                          } catch (e) {
-                            update({ step: 5, loading: false });
-                          }
-                          return;
-                        }
-
-                        const errorText = await res.text();
-                        console.error("Status update error response:", errorText);
-                        update({ error: `Server error (${res.status}). Check console.`, loading: false });
-
-                      } catch (err) {
-                        console.error("Status update execution error:", err);
-                        update({ error: "Connection error: " + err.message, loading: false });
->>>>>>> upstream/main
                       }
                     }}
                     style={{ flex: 1, padding: "13px", borderRadius: 11, border: "none", background: C.accent, color: C.white, fontWeight: 700, fontSize: 14, cursor: "pointer", opacity: (loading || !status) ? 0.4 : 1 }}>

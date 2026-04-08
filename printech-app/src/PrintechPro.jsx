@@ -154,7 +154,7 @@ function TopBar({ title, sub }) {
 
 /* ── OPERATOR PAGE ──────────────────────────────────────────── */
 function OperatorPage({ state, setState }) {
-  const { step, authMode, empId, jobLookupNumber, jobCard, machine, status, scannerActive, scanError, loading, error, currentJobData } = state;
+  const { step, authMode, empId, jobLookupNumber, jobCard, machine, status, scannerActive, scanError, loading, error, currentJobData, apiToken } = state;
 
   const update = (patch) => setState(prev => ({ ...prev, ...patch }));
 
@@ -547,14 +547,32 @@ function OperatorPage({ state, setState }) {
                         if (data.status === 1 || data.job_card_id) {
                           const jobInfo = data.data || data;
                           const machineList = jobInfo.machineWoList || [];
-                          const firstMachine = machineList.length > 0 ? machineList[0].machine_name : jobInfo.machine_name;
-                          
-                          update({ 
-                            step: 3, 
-                            jobCard: jcn, 
-                            currentJobData: jobInfo, 
-                            machine: firstMachine || "",
-                            loading: false 
+
+                          // Deduplicate machine list by machine_name + process_name
+                          const uniqueMachines = [];
+                          const seen = new Set();
+                          machineList.forEach(m => {
+                            const mName = m.machine_name || m.machineName || m.machine || "Unknown Machine";
+                            const pName = m.process_name || "";
+                            const key = mName;
+                            if (!seen.has(key)) {
+                              seen.add(key);
+                              uniqueMachines.push({ ...m, displayName: mName, processName: pName });
+                            }
+                          });
+
+                          const firstMachine = uniqueMachines.length > 0
+                            ? (uniqueMachines[0].processName ? `${uniqueMachines[0].displayName} (${uniqueMachines[0].processName})` : uniqueMachines[0].displayName)
+                            : (jobInfo.machine_name || "");
+
+                          update({
+                            step: 3,
+                            jobCard: jcn,
+                            currentJobData: { ...jobInfo, machineWoList: uniqueMachines },
+                            machine: firstMachine,
+                            selectedMachineObj: uniqueMachines.length > 0 ? uniqueMachines[0] : null,
+                            apiToken: data.token || "",
+                            loading: false
                           });
                         } else {
                           update({ error: data.msg || "Job not found", loading: false });
@@ -596,15 +614,16 @@ function OperatorPage({ state, setState }) {
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: C.muted, letterSpacing: 0.8, fontFamily: "'DM Mono',monospace" }}>AVAILABLE MACHINES</label>
-                  
+
                   {currentJobData?.machineWoList && currentJobData.machineWoList.length > 0 ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {currentJobData.machineWoList.map((m, idx) => {
-                        const mName = m.machine_name || m.machineName || m.machine || "Unknown Machine";
+                        const mName = m.displayName;
+                        const pName = m.processName;
                         const isSelected = machine === mName;
                         return (
-                          <button key={idx} onClick={() => update({ machine: mName })}
-                            style={{ 
+                          <button key={idx} onClick={() => update({ machine: mName, selectedMachineObj: m })}
+                            style={{
                               padding: "14px 18px", borderRadius: 12, border: `2.2px solid ${isSelected ? C.accent : C.border}`,
                               background: isSelected ? C.accentLt : C.white,
                               color: isSelected ? C.accent : C.text,
@@ -614,7 +633,10 @@ function OperatorPage({ state, setState }) {
                             }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                               <span style={{ fontSize: 18, opacity: isSelected ? 1 : 0.3 }}>{isSelected ? "◉" : "○"}</span>
-                              {mName}
+                              <div style={{ display: "flex", flexDirection: "column" }}>
+                                <span>{mName}</span>
+                                {pName && <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>{pName}</span>}
+                              </div>
                             </div>
                             {isSelected && <span style={{ fontSize: 16 }}>✓</span>}
                           </button>
@@ -679,6 +701,10 @@ function OperatorPage({ state, setState }) {
                     disabled={loading || !status}
                     onClick={async () => {
                       if (!status) return;
+<<<<<<< HEAD
+=======
+
+>>>>>>> upstream/main
                       if (window.PRINTECH_DEV_MODE) {
                         update({ loading: true });
                         setTimeout(() => update({ step: 5, loading: false }), 800);
@@ -692,7 +718,33 @@ function OperatorPage({ state, setState }) {
 
                       update({ loading: true, error: "" });
                       try {
+<<<<<<< HEAD
                         const machineWorkOrderId = resolveMachineWorkOrderId();
+=======
+                        const formData = new URLSearchParams();
+
+                        // Use the status mapping if needed, or send raw status ID
+                        // The API expects 'workorderId' and 'workorderStatus'
+                        // Priority: selected machine's workOrderId > currentJobData's workOrderId
+                        const targetOrderId = state.selectedMachineObj?.work_order_id ||
+                          state.selectedMachineObj?.workOrderId ||
+                          state.selectedMachineObj?.workOrder_id ||
+                          state.selectedMachineObj?.id ||
+                          currentJobData?.workOrderId ||
+                          currentJobData?.workorder_id;
+
+                        if (!targetOrderId) {
+                          update({ error: "Missing Work Order ID", loading: false });
+                          return;
+                        }
+
+                        formData.append("workorderId", targetOrderId);
+                        formData.append("workorderStatus", status);
+                        formData.append("empCode", empId || localStorage.getItem("printech_emp_id") || "EMP0033");
+                        formData.append("token", apiToken);
+
+                        console.log("Sending status update:", { workorderId: targetOrderId, workorderStatus: status, token: apiToken });
+>>>>>>> upstream/main
 
                         const machineWorkOrderIdStr = String(machineWorkOrderId ?? "").trim();
                         const statusStr = String(status ?? "").trim();
@@ -720,6 +772,7 @@ function OperatorPage({ state, setState }) {
                           body: formData
                         });
 
+<<<<<<< HEAD
                         let data = null;
                         let rawText = "";
                         const contentType = res.headers.get("content-type") || "";
@@ -751,6 +804,28 @@ function OperatorPage({ state, setState }) {
                         }
                       } catch (err) {
                         update({ error: err?.message || "Failed to update status", loading: false });
+=======
+                        // Treat HTTP success as success, especially if the body is empty
+                        if (res.ok) {
+                          try {
+                            const text = await res.text();
+                            console.log("Status update response:", text);
+                            // Even if we fail to parse JSON, if it's 200 OK, we count it as success
+                            update({ step: 5, loading: false });
+                          } catch (e) {
+                            update({ step: 5, loading: false });
+                          }
+                          return;
+                        }
+
+                        const errorText = await res.text();
+                        console.error("Status update error response:", errorText);
+                        update({ error: `Server error (${res.status}). Check console.`, loading: false });
+
+                      } catch (err) {
+                        console.error("Status update execution error:", err);
+                        update({ error: "Connection error: " + err.message, loading: false });
+>>>>>>> upstream/main
                       }
                     }}
                     style={{ flex: 1, padding: "13px", borderRadius: 11, border: "none", background: C.accent, color: C.white, fontWeight: 700, fontSize: 14, cursor: "pointer", opacity: (loading || !status) ? 0.4 : 1 }}>
@@ -771,7 +846,7 @@ function OperatorPage({ state, setState }) {
                   {[
                     ["Job ID", jobLookupNumber || jobCard || "N/A", "'DM Mono',monospace"],
                     ["Operator ID", empId, "'DM Sans',sans-serif"],
-                  ["Machine", machine || currentJobData?.machine_name || currentJobData?.machineName || "N/A", "'DM Sans',sans-serif"],
+                    ["Machine", machine || "N/A", "'DM Sans',sans-serif"],
                     ["Status", statusConfig[status]?.label || "N/A", "'DM Sans',sans-serif"],
                     ["Timestamp", now() + " · " + new Date().toLocaleDateString("en-IN"), "'DM Mono',monospace"],
                   ].map(([k, v, f]) => (
@@ -782,9 +857,10 @@ function OperatorPage({ state, setState }) {
                   ))}
                 </div>
                 <button onClick={() => {
+                  localStorage.removeItem("printech_emp_id");
                   setState(prev => ({
                     ...prev,
-                    step: 1, authMode: "id", empId: "", jobLookupNumber: "", jobCard: "", machine: "", status: "", scannerActive: false, scanError: ""
+                    step: 1, authMode: "id", empId: "", jobLookupNumber: "", jobCard: "", machine: "", status: "", apiToken: "", scannerActive: false, scanError: ""
                   }));
                   setQrAuthDone(false);
                   setQrJobDone(false);
@@ -802,7 +878,7 @@ function OperatorPage({ state, setState }) {
 }
 
 /* ── JOB LOOKUP PAGE ────────────────────────────────────────── */
-function JobLookupPage({ empId }) {
+function JobLookupPage({ empId, apiToken }) {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState(null);
   const [searched, setSearched] = useState(false);
@@ -822,6 +898,7 @@ function JobLookupPage({ empId }) {
       const formData = new URLSearchParams();
       // Default to EMP0033 for manager lookup if no ID present
       formData.append("empCode", empId || localStorage.getItem("printech_emp_id") || "EMP0033");
+      formData.append("token", apiToken);
       formData.append("jobCardNo", q);
 
       const res = await fetch("http://117.218.59.130/vasa_wo_api/work_order/viewAssignedJob", {
@@ -930,7 +1007,7 @@ function JobLookupPage({ empId }) {
                 QR
               </button>
             </div>
-            <div style={{ color: C.muted, fontSize: 11, marginTop: 8, fontFamily: "'DM Mono',monospace" }}>Try: 260099, 260098, 250046</div>
+            <div style={{ color: C.muted, fontSize: 11, marginTop: 8, fontFamily: "'DM Mono',monospace" }}>Enter job card number to view live status</div>
           </div>
         </div>
 
@@ -993,6 +1070,51 @@ function JobLookupPage({ empId }) {
                   </div>
                 ))}
               </div>
+
+              {/* Machine Activity section (Matches Admin "Machine Live Report") */}
+              {result.machineWoList && result.machineWoList.length > 0 && (
+                <div style={{ marginTop: 24, borderTop: `1px solid ${C.border}`, paddingTop: 24 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ff4d4d", boxShadow: "0 0 8px #ff4d4d88" }} />
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.text, fontFamily: "'Lora',serif", letterSpacing: 0.5 }}>MACHINE LIVE REPORT</div>
+                  </div>
+
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
+                      <thead>
+                        <tr style={{ background: "#6b728022", textAlign: "left" }}>
+                          <th style={{ padding: "10px 12px", fontSize: 10, color: C.muted, borderBottom: `1px solid ${C.border}`, fontFamily: "'DM Mono',monospace" }}>S.NO</th>
+                          <th style={{ padding: "10px 12px", fontSize: 10, color: C.muted, borderBottom: `1px solid ${C.border}`, fontFamily: "'DM Mono',monospace" }}>MACHINE</th>
+                          <th style={{ padding: "10px 12px", fontSize: 10, color: C.muted, borderBottom: `1px solid ${C.border}`, fontFamily: "'DM Mono',monospace" }}>OPERATOR</th>
+                          <th style={{ padding: "10px 12px", fontSize: 10, color: C.muted, borderBottom: `1px solid ${C.border}`, fontFamily: "'DM Mono',monospace" }}>PROCESS</th>
+                          <th style={{ padding: "10px 12px", fontSize: 10, color: C.muted, borderBottom: `1px solid ${C.border}`, fontFamily: "'DM Mono',monospace" }}>STATUS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.machineWoList.map((m, idx) => {
+                          const isLive = (m.status || "OnGoing").toLowerCase().includes("going") || (m.status || "OnGoing").toLowerCase().includes("progress");
+                          return (
+                            <tr key={idx} style={{ borderBottom: `1px solid #f0f0f0` }}>
+                              <td style={{ padding: "12px", fontSize: 12, color: C.muted, fontFamily: "'DM Mono',monospace" }}>{idx + 1}</td>
+                              <td style={{ padding: "12px", fontSize: 13, fontWeight: 600, color: C.text }}>{m.machine_name || m.machineName || "N/A"}</td>
+                              <td style={{ padding: "12px", fontSize: 13, color: C.text }}>{m.operator_name || m.operatorName || "Pending"}</td>
+                              <td style={{ padding: "12px", fontSize: 13, color: C.muted }}>{m.process_name || m.processName || "General"}</td>
+                              <td style={{ padding: "12px" }}>
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: isLive ? "#f59e0b" : C.completed, padding: "3px 10px", borderRadius: 6, background: isLive ? "#fffbeb" : "#f0fdf4" }}>
+                                  {isLive && (
+                                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", animation: "pulse 1.5s infinite" }} />
+                                  )}
+                                  {m.status || "OnGoing"}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1022,8 +1144,11 @@ export default function App() {
     scanError: "",
     loading: false,
     error: "",
-    currentJobData: null
+    currentJobData: null,
+    selectedMachineObj: null,
+    apiToken: ""
   });
+
 
   return (
     <div className="app-container" style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans',sans-serif" }}>
@@ -1033,6 +1158,12 @@ export default function App() {
         select, input, button { font-family:inherit; }
         ::-webkit-scrollbar { width:5px; } ::-webkit-scrollbar-track { background:#f0f4f1; } ::-webkit-scrollbar-thumb { background:#b7dfc8; border-radius:4px; }
         button:hover { filter: brightness(0.96); }
+
+        @keyframes pulse {
+          0% { transform: scale(0.95); opacity: 0.8; }
+          50% { transform: scale(1.1); opacity: 1; }
+          100% { transform: scale(0.95); opacity: 0.8; }
+        }
 
         @media (max-width: 768px) {
           .app-container { flex-direction: column !important; }
@@ -1050,8 +1181,12 @@ export default function App() {
       <Sidebar active={active} setActive={setActive} />
 
       <div style={{ flex: 1, overflowY: "auto", minHeight: "100vh" }}>
-        {active === "operator" && <OperatorPage state={state} setState={setState} />}
-        {active === "jobview" && <JobLookupPage empId={state.empId} />}
+        <div style={{ display: active === "operator" ? "block" : "none", height: "100%" }}>
+          <OperatorPage state={state} setState={setState} />
+        </div>
+        <div style={{ display: active === "jobview" ? "block" : "none", height: "100%" }}>
+          <JobLookupPage empId={state.empId} apiToken={state.apiToken} />
+        </div>
       </div>
     </div>
   );

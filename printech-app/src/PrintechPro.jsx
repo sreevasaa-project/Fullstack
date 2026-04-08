@@ -160,7 +160,7 @@ function OperatorPage({ state, setState }) {
 
   const now = () => new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-  const [qrAuthDone, setQrAuthDone] = useState(false);
+  const [cdAuthDone, setQrAuthDone] = useState(false);
   const [qrJobDone, setQrJobDone] = useState(false);
   const [externalScanValue, setExternalScanValue] = useState("");
   const employeeInputRef = useRef(null);

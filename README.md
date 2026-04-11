@@ -64,7 +64,16 @@ npm run dev
 - The terminal will display a link like **`http://localhost:5173`**.
 - **Ctrl + Click** the link or manually type it into your browser to open the app!
 
+### 6. Building for Production & The `dist` Folder
+To generate the final, optimized code for deployment:
+```bash
+npm run build
+```
+This command creates a `dist` (distribution) folder. 
+**Note:** The `dist` folder is intentionally ignored by GitHub (via `.gitignore`) because it contains generated code. If you clone this repository on a new machine, you will not see the `dist` folder until you run the build command yourself.
+
 ---
+
 
 ## Tech Stack
 - **Frontend:** React 19 (Vite)

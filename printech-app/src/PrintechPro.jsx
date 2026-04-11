@@ -64,16 +64,27 @@ const Tag = ({ label, color, bg, small }) => (
   </span>
 );
 
+const LargeErrorDisplay = ({ message, onClose }) => (
+  <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(220, 38, 38, 0.95)", zIndex: 10000, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "white", padding: 40, textAlign: "center" }}>
+    <div style={{ fontSize: 80, marginBottom: 20 }}>⚠</div>
+    <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 16, fontFamily: "'Lora', serif" }}>SYSTEM ERROR</div>
+    <div style={{ fontSize: 18, maxWidth: 600, lineHeight: 1.5, opacity: 0.9, marginBottom: 40, fontFamily: "'DM Mono', monospace" }}>{message}</div>
+    <button onClick={onClose} style={{ padding: "18px 48px", borderRadius: 14, border: "none", background: "white", color: "#dc2626", fontWeight: 800, fontSize: 20, cursor: "pointer", boxShadow: "0 10px 25px rgba(0,0,0,0.2)" }}>
+      TAP TO DISMISS & RETRY
+    </button>
+  </div>
+);
+
 const ProgressBar = ({ pct, color }) => (
   <div style={{ height: 6, background: "#e5ede9", borderRadius: 99, overflow: "hidden" }}>
     <div style={{ height: "100%", width: `${pct}%`, background: color || C.accent, borderRadius: 99, transition: "width 0.4s ease" }} />
   </div>
 );
 
-const Input = ({ label, placeholder, value, onChange, mono }) => (
+const Input = ({ label, placeholder, value, onChange, mono, onKeyDown }) => (
   <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
     <label style={{ fontSize: 12, fontWeight: 600, color: C.muted, letterSpacing: 0.8, fontFamily: "'DM Mono',monospace" }}>{label}</label>
-    <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+    <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} onKeyDown={onKeyDown}
       style={{ border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "11px 14px", fontSize: 14, fontFamily: mono ? "'DM Mono',monospace" : "'Lora',serif", color: C.text, background: C.white, outline: "none", transition: "border 0.2s", width: "100%" }}
       onFocus={e => e.target.style.border = `1.5px solid ${C.accent}`}
       onBlur={e => e.target.style.border = `1.5px solid ${C.border}`}
@@ -82,7 +93,7 @@ const Input = ({ label, placeholder, value, onChange, mono }) => (
 );
 
 /* ── SIDEBAR ────────────────────────────────────────────────── */
-function Sidebar({ active, setActive }) {
+function Sidebar({ active, setActive, isOnline, lastSync }) {
   const items = [
     { id: "operator", icon: "⚙", label: "Operator Entry" },
     { id: "jobview", icon: "◎", label: "Job Lookup" },
@@ -92,12 +103,12 @@ function Sidebar({ active, setActive }) {
       {/* Logo */}
       <div style={{ padding: "28px 22px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontSize: 16 }}>▣</span>
+          <div style={{ width: 48, height: 48, borderRadius: 8, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+            <img src="/vassa-logo.png" alt="VASSA Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
           </div>
           <div>
-            <div style={{ color: C.white, fontSize: 13, fontWeight: 700, fontFamily: "'Lora',serif", lineHeight: 1.1 }}>Sree Vasa</div>
-            <div style={{ color: "#7eb898", fontSize: 10, fontFamily: "'DM Mono',monospace", letterSpacing: 2 }}>PRINTECH</div>
+            <div style={{ color: C.white, fontSize: 14, fontWeight: 700, fontFamily: "'Lora',serif", lineHeight: 1.1 }}>Sree Vasaa</div>
+            <div style={{ color: "#7eb898", fontSize: 11, fontFamily: "'DM Mono',monospace", letterSpacing: 2 }}>PRINTECH</div>
           </div>
         </div>
       </div>
@@ -125,10 +136,12 @@ function Sidebar({ active, setActive }) {
       {/* Footer */}
       <div style={{ padding: "16px 22px", borderTop: "1px solid #2a5040" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-          <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#5dd99a" }} />
-          <span style={{ color: "#5dd99a", fontSize: 11, fontFamily: "'DM Mono',monospace" }}>System Online</span>
+          <div style={{ width: 7, height: 7, borderRadius: "50%", background: isOnline ? "#5dd99a" : "#ff4d4d", transition: "background 0.3s" }} />
+          <span style={{ color: isOnline ? "#5dd99a" : "#ff4d4d", fontSize: 11, fontFamily: "'DM Mono',monospace", fontWeight: 700 }}>
+            {isOnline ? "System Online" : "Server Disconnected"}
+          </span>
         </div>
-        <div style={{ color: "#4a7a60", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>Last sync: just now</div>
+        <div style={{ color: "#4a7a60", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>Last sync: {lastSync || "never"}</div>
       </div>
     </div>
   );
@@ -157,7 +170,7 @@ function TopBar({ title, sub }) {
 }
 
 /* ── OPERATOR PAGE ──────────────────────────────────────────── */
-function OperatorPage({ state, setState }) {
+function OperatorPage({ state, setState, onSync }) {
   const { step, authMode, empId, jobLookupNumber, jobCard, machine, status, scannerActive, scanError, loading, error, currentJobData, apiToken } = state;
 
   const update = (patch) => setState(prev => ({ ...prev, ...patch }));
@@ -178,40 +191,136 @@ function OperatorPage({ state, setState }) {
     }
   }, []);
 
-  // Auto-focus Logic
+  // Auto-focus & Sticky Focus Logic
   useEffect(() => {
-    if (step === 1 && authMode === "id") employeeInputRef.current?.focus();
-    if (step === 2 && authMode === "id") jobInputRef.current?.focus();
+    const handleFocus = () => {
+      if (step === 1 && authMode === "id") employeeInputRef.current?.focus();
+      if (step === 2 && authMode === "id") jobInputRef.current?.focus();
+    };
+    handleFocus();
   }, [step, authMode]);
+
+  const stickyFocus = (ref) => {
+    // Small delay to ensure blur finishes before refocusing
+    setTimeout(() => {
+      if (ref.current && document.activeElement !== ref.current) {
+        ref.current.focus();
+      }
+    }, 150);
+  };
+
+  // Common regex for job cards: exactly 6 digits
+  const JOB_REGEX = /^\d{6}$/i;
 
   // Handle QR scan results
   const handleQRScan = (result) => {
     if (!result) return;
-
     try {
       const data = result[0].rawValue;
-
-      // Parse employee QR code (format: EMP-{id}:{name})
-      // Parse employee QR code (format: EMPXXXX)
       if (step === 1 && data.toUpperCase().startsWith('EMP')) {
-        update({ empId: data.toUpperCase(), scannerActive: false, scanError: "" });
+        const id = data.toUpperCase();
+        update({ empId: id, scannerActive: false, scanError: "" });
+        localStorage.setItem("printech_emp_id", id);
         setQrAuthDone(true);
-        setTimeout(() => update({ step: 2 }), 500);
+        setTimeout(() => update({ step: 2 }), 300);
       }
-      // Parse job card QR code (format: 6-8 digit number)
-      else if (step === 1 && /^\d{5,8}$/.test(data)) {
+      else if (step === 2 && JOB_REGEX.test(data)) {
         update({ jobLookupNumber: data, jobCard: data, scannerActive: false, scanError: "" });
+        setQrJobDone(true);
+        // Auto-fetch after QR scan
+        setTimeout(() => handleJobLookup(data), 100);
       }
       else {
-        update({ scanError: "Invalid QR code for current step" });
+        update({ scanError: "Invalid code for current step" });
       }
     } catch (error) {
       update({ scanError: "Failed to read QR code" });
     }
   };
 
+  const handleJobLookup = async (overrideNumber) => {
+    const jcn = overrideNumber || (authMode === "id" ? jobLookupNumber : jobCard);
+    if (!jcn || jcn.length !== 6) return;
+
+    update({ loading: true, error: "" });
+    try {
+      const formData = new URLSearchParams();
+      formData.append("empCode", empId || localStorage.getItem("printech_emp_id") || "EMP0033");
+      formData.append("jobCardNo", jcn);
+
+      const res = await fetch("http://117.218.59.130/vasa_wo_api/work_order/viewAssignedJob", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData
+      });
+      const data = await res.json();
+
+      if (data.status === 1 || data.job_card_id) {
+        const jobInfo = data.data || data;
+        const machineList = jobInfo.machineWoList || [];
+        const uniqueMachines = [];
+        const seen = new Set();
+        machineList.forEach(m => {
+          const mName = m.machine_name || m.machineName || m.machine || "Unknown Machine";
+          const pName = m.process_name || "";
+          if (!seen.has(mName)) {
+            seen.add(mName);
+            uniqueMachines.push({ ...m, displayName: mName, processName: pName });
+          }
+        });
+
+        const firstMachine = uniqueMachines.length > 0
+          ? (uniqueMachines[0].processName ? `${uniqueMachines[0].displayName} (${uniqueMachines[0].processName})` : uniqueMachines[0].displayName)
+          : (jobInfo.machine_name || "");
+
+        update({
+          step: 3,
+          jobCard: jcn,
+          currentJobData: { ...jobInfo, machineWoList: uniqueMachines },
+          machine: firstMachine,
+          selectedMachineObj: uniqueMachines.length > 0 ? uniqueMachines[0] : null,
+          apiToken: data.token || "",
+          loading: false
+        });
+        onSync(true);
+      } else {
+        update({ error: data.msg || "Job not found", loading: false });
+        onSync(true);
+      }
+    } catch (err) {
+      // OFFLINE ALTERNATIVE: Fallback to sample data for testing
+      console.log("Server unreachable, using offline fallback for testing.");
+      const mockJob = sampleJobs.find(j => j.id === jcn) || sampleJobs[0];
+      update({
+        error: "Server Offline — Using Demo Data",
+        loading: false,
+        step: 3,
+        jobCard: jcn,
+        currentJobData: { ...mockJob, machineWoList: [] },
+        machine: mockJob.machine,
+        apiToken: "MOCK_TOKEN"
+      });
+      onSync(false);
+    }
+  };
+
+  // Automation: Auto-fetch on 6 digits
+  useEffect(() => {
+    if (step === 2 && jobLookupNumber.length === 6) {
+      handleJobLookup(jobLookupNumber);
+    }
+  }, [jobLookupNumber]);
+
+  // Automation: Auto-advance Step 1
+  useEffect(() => {
+    if (step === 1 && empId.toUpperCase().startsWith("EMP") && empId.length >= 7) {
+      localStorage.setItem("printech_emp_id", empId.toUpperCase());
+      update({ step: 2 });
+    }
+  }, [empId]);
+
   const handleScanError = (error) => {
-    update({ scanError: "Camera access failed. Please check browser permissions." });
+    update({ scanError: "Camera access failed" });
   };
 
   const startScanner = () => update({ scannerActive: true, scanError: "" });
@@ -236,6 +345,7 @@ function OperatorPage({ state, setState }) {
 
   return (
     <div className="page-padding" style={{ padding: "28px" }}>
+      {error && <LargeErrorDisplay message={error} onClose={() => update({ error: "" })} />}
       <TopBar title="Operator Entry" sub="Job card status update workflow" />
       <div style={{ maxWidth: 560, margin: "32px auto" }}>
 
@@ -262,68 +372,24 @@ function OperatorPage({ state, setState }) {
             {step === 1 && (
               <div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: C.text, fontFamily: "'Lora',serif", marginBottom: 4 }}>Employee Authentication</div>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 24 }}>Verify your identity to begin</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 24 }}>Scan your employee badge to begin</div>
 
-                <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-                  {["id", "qr"].map(m => (
-                    <button key={m} onClick={() => { update({ authMode: m, scannerActive: false, scanError: "" }); setQrAuthDone(false); }}
-                      style={{ flex: 1, padding: "10px", borderRadius: 10, border: `1.5px solid ${authMode === m ? C.accent : C.border}`, background: authMode === m ? C.accentLt : C.white, color: authMode === m ? C.accent : C.muted, fontFamily: "'DM Sans',sans-serif", fontWeight: 600, fontSize: 13, cursor: "pointer", transition: "all 0.2s" }}>
-                      {m === "id" ? "◉  Employee ID" : "◎  Scan QR"}
-                    </button>
-                  ))}
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: C.muted, letterSpacing: 0.8, fontFamily: "'DM Mono',monospace" }}>EMPLOYEE ID</label>
+                    <input id="operator-emp-input" ref={employeeInputRef} value={empId} onChange={e => update({ empId: e.target.value.toUpperCase() })} placeholder="Ready to scan..."
+                      onBlur={() => stickyFocus(employeeInputRef)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && empId.toUpperCase().startsWith("EMP") && empId.length >= 4) {
+                          localStorage.setItem("printech_emp_id", empId.toUpperCase());
+                          update({ step: 2 });
+                        }
+                      }}
+                      style={{ border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", fontSize: 16, fontFamily: "'DM Mono',monospace", color: C.text, background: C.white, outline: "none", transition: "border 0.2s", width: "100%" }}
+                      onFocus={e => e.target.style.border = `1.5px solid ${C.accent}`}
+                    />
+                  </div>
                 </div>
-
-                {authMode === "id" ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: C.muted, letterSpacing: 0.8, fontFamily: "'DM Mono',monospace" }}>EMPLOYEE ID</label>
-                      <input ref={employeeInputRef} value={empId} onChange={e => update({ empId: e.target.value.toUpperCase() })} placeholder="e.g. EMP0033"
-                        style={{ border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", fontSize: 16, fontFamily: "'DM Mono',monospace", color: C.text, background: C.white, outline: "none", transition: "border 0.2s", width: "100%" }}
-                        onFocus={e => e.target.style.border = `1.5px solid ${C.accent}`}
-                        onBlur={e => e.target.style.border = `1.5px solid ${C.border}`}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ border: `2px solid ${C.accent}`, borderRadius: 14, padding: "16px", background: C.white }}>
-                    {!scannerActive ? (
-                      <div style={{ textAlign: "center", padding: "16px" }}>
-                        <div style={{ fontSize: 36, marginBottom: 8 }}>📷</div>
-                        <div style={{ color: C.accent, fontWeight: 700, fontFamily: "'DM Sans',sans-serif", fontSize: 14 }}>Employee QR Scanner</div>
-                        <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Scan your employee badge QR code</div>
-                        {scanError && (
-                          <div style={{ color: "#dc2626", fontSize: 11, marginTop: 8, padding: "6px 12px", background: "#fef2f2", borderRadius: 6 }}>
-                            {scanError}
-                          </div>
-                        )}
-                        <button onClick={startScanner}
-                          style={{ marginTop: 16, padding: "10px 24px", borderRadius: 8, border: `1.5px solid ${C.accent}`, background: C.accent, color: C.white, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
-                          Start Scanner
-                        </button>
-                      </div>
-                    ) : (
-                      <div>
-                        <div style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: C.accent }}>Scanning Employee Badge...</div>
-                          <button onClick={stopScanner}
-                            style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.white, color: C.muted, fontSize: 11, cursor: "pointer" }}>
-                            Cancel
-                          </button>
-                        </div>
-                        <div style={{ borderRadius: 10, overflow: "hidden", background: "#000", height: 320, position: 'relative' }}>
-                          <Scanner
-                            onScan={handleQRScan}
-                            onError={handleScanError}
-                            styles={{
-                              container: { width: '100%', height: '100%' },
-                              video: { objectFit: 'cover', width: '100%', height: '100%' }
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 <button
                   onClick={() => {
@@ -339,7 +405,7 @@ function OperatorPage({ state, setState }) {
                   }}
                   style={{
                     marginTop: 24, width: "100%", padding: "13px", borderRadius: 11, border: "none", background: C.accent, color: C.white, fontWeight: 700, fontSize: 15, fontFamily: "'DM Sans',sans-serif", cursor: "pointer",
-                    opacity: (authMode === "id" ? empId.length > 2 : qrAuthDone) ? 1 : 0.4
+                    opacity: (authMode === "id" ? empId.length >= 4 : qrAuthDone) ? 1 : 0.4
                   }}>
                   Continue →
                 </button>
@@ -350,138 +416,33 @@ function OperatorPage({ state, setState }) {
             {step === 2 && (
               <div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: C.text, fontFamily: "'Lora',serif", marginBottom: 4 }}>Job Selection</div>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 24 }}>Enter or scan your Job Card ID</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 24 }}>Scan your Job Card now</div>
 
-                <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-                  {["id", "qr"].map(m => (
-                    <button key={m} onClick={() => { update({ authMode: m, scannerActive: false, scanError: "" }); setQrJobDone(false); }}
-                      style={{ flex: 1, padding: "10px", borderRadius: 10, border: `1.5px solid ${authMode === m ? C.accent : C.border}`, background: authMode === m ? C.accentLt : C.white, color: authMode === m ? C.accent : C.muted, fontFamily: "'DM Sans',sans-serif", fontWeight: 600, fontSize: 13, cursor: "pointer", transition: "all 0.2s" }}>
-                      {m === "id" ? "◉  Job ID" : "◎  Scan QR"}
-                    </button>
-                  ))}
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: C.muted, letterSpacing: 0.8, fontFamily: "'DM Mono',monospace" }}>JOB CARD NUMBER</label>
+                    <input id="operator-job-input" ref={jobInputRef} value={jobLookupNumber} onChange={e => update({ jobLookupNumber: e.target.value })} placeholder="Ready to scan..."
+                      onBlur={() => stickyFocus(jobInputRef)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && jobLookupNumber.length === 6) {
+                          handleJobLookup();
+                        }
+                      }}
+                      style={{ border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", fontSize: 16, fontFamily: "'DM Mono',monospace", color: C.text, background: C.white, outline: "none", transition: "border 0.2s", width: "100%" }}
+                      onFocus={e => e.target.style.border = `1.5px solid ${C.accent}`}
+                    />
+                  </div>
                 </div>
-
-                {authMode === "id" ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: C.muted, letterSpacing: 0.8, fontFamily: "'DM Mono',monospace" }}>JOB CARD NUMBER</label>
-                      <input ref={jobInputRef} value={jobLookupNumber} onChange={e => update({ jobLookupNumber: e.target.value })} placeholder="e.g. 260099"
-                        style={{ border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", fontSize: 16, fontFamily: "'DM Mono',monospace", color: C.text, background: C.white, outline: "none", transition: "border 0.2s", width: "100%" }}
-                        onFocus={e => e.target.style.border = `1.5px solid ${C.accent}`}
-                        onBlur={e => e.target.style.border = `1.5px solid ${C.border}`}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ border: `2px solid ${C.accent}`, borderRadius: 14, padding: "16px", background: C.white }}>
-                    {!scannerActive ? (
-                      <div style={{ textAlign: "center", padding: "16px" }}>
-                        <div style={{ fontSize: 36, marginBottom: 8 }}>📋</div>
-                        <div style={{ color: C.accent, fontWeight: 700, fontFamily: "'DM Sans',sans-serif", fontSize: 14 }}>Job Card Scanner</div>
-                        <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Scan your job card QR code</div>
-                        {scanError && (
-                          <div style={{ color: "#dc2626", fontSize: 11, marginTop: 8, padding: "6px 12px", background: "#fef2f2", borderRadius: 6 }}>
-                            {scanError}
-                          </div>
-                        )}
-                        <button onClick={startScanner}
-                          style={{ marginTop: 16, padding: "10px 24px", borderRadius: 8, border: `1.5px solid ${C.accent}`, background: C.accent, color: C.white, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
-                          Start Scanner
-                        </button>
-                      </div>
-                    ) : (
-                      <div>
-                        <div style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: C.accent }}>Scanning Job Card...</div>
-                          <button onClick={stopScanner}
-                            style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.white, color: C.muted, fontSize: 11, cursor: "pointer" }}>
-                            Cancel
-                          </button>
-                        </div>
-                        <div style={{ borderRadius: 10, overflow: "hidden", background: "#000", height: 320, position: 'relative' }}>
-                          <Scanner
-                            onScan={(res) => {
-                              if (res?.[0]) {
-                                const data = res[0].rawValue;
-                                if (/^\d{5,8}$/.test(data)) {
-                                  update({ jobLookupNumber: data, jobCard: data, scannerActive: false });
-                                  setQrJobDone(true);
-                                }
-                              }
-                            }}
-                            onError={handleScanError}
-                            styles={{
-                              container: { width: '100%', height: '100%' },
-                              video: { objectFit: 'cover', width: '100%', height: '100%' }
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
                   <button onClick={() => update({ step: 1 })} style={{ padding: "12px 20px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.white, color: C.muted, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>← Back</button>
                   <button
-                    disabled={loading || !(authMode === "id" ? jobLookupNumber.length > 2 : qrJobDone)}
-                    onClick={async () => {
-                      const jcn = authMode === "id" ? jobLookupNumber : jobCard;
-                      if (!jcn) return;
-
-                      update({ loading: true, error: "" });
-                      try {
-                        const formData = new URLSearchParams();
-                        formData.append("empCode", empId);
-                        formData.append("jobCardNo", jcn);
-
-                        const res = await fetch("http://117.218.59.130/vasa_wo_api/work_order/viewAssignedJob", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                          body: formData
-                        });
-                        const data = await res.json();
-
-                        if (data.status === 1 || data.job_card_id) {
-                          const jobInfo = data.data || data;
-                          const machineList = jobInfo.machineWoList || [];
-
-                          // Deduplicate machine list by machine_name + process_name
-                          const uniqueMachines = [];
-                          const seen = new Set();
-                          machineList.forEach(m => {
-                            const mName = m.machine_name || m.machineName || m.machine || "Unknown Machine";
-                            const pName = m.process_name || "";
-                            const key = mName;
-                            if (!seen.has(key)) {
-                              seen.add(key);
-                              uniqueMachines.push({ ...m, displayName: mName, processName: pName });
-                            }
-                          });
-
-                          const firstMachine = uniqueMachines.length > 0
-                            ? (uniqueMachines[0].processName ? `${uniqueMachines[0].displayName} (${uniqueMachines[0].processName})` : uniqueMachines[0].displayName)
-                            : (jobInfo.machine_name || "");
-
-                          update({
-                            step: 3,
-                            jobCard: jcn,
-                            currentJobData: { ...jobInfo, machineWoList: uniqueMachines },
-                            machine: firstMachine,
-                            selectedMachineObj: uniqueMachines.length > 0 ? uniqueMachines[0] : null,
-                            apiToken: data.token || "",
-                            loading: false
-                          });
-                        } else {
-                          update({ error: data.msg || "Job not found", loading: false });
-                        }
-                      } catch (err) {
-                        update({ error: "Connection error", loading: false });
-                      }
-                    }}
+                    id="job-continue-btn"
+                    disabled={loading || !(authMode === "id" ? jobLookupNumber.length === 6 : qrJobDone)}
+                    onClick={() => handleJobLookup()}
                     style={{
                       flex: 1, padding: "13px", borderRadius: 11, border: "none", background: C.accent, color: C.white, fontWeight: 700, fontSize: 15, fontFamily: "'DM Sans',sans-serif", cursor: "pointer",
-                      opacity: (loading || !(authMode === "id" ? jobLookupNumber.length > 2 : qrJobDone)) ? 0.4 : 1
+                      opacity: (loading || !(authMode === "id" ? jobLookupNumber.length >= 3 : qrJobDone)) ? 0.4 : 1
                     }}>
                     {loading ? "Fetching..." : "Continue →"}
                   </button>
@@ -649,8 +610,10 @@ function OperatorPage({ state, setState }) {
                             console.log("Status update response:", text);
                             // Even if we fail to parse JSON, if it's 200 OK, we count it as success
                             update({ step: 5, loading: false });
+                            onSync(true);
                           } catch (e) {
                             update({ step: 5, loading: false });
+                            onSync(true);
                           }
                           return;
                         }
@@ -658,10 +621,12 @@ function OperatorPage({ state, setState }) {
                         const errorText = await res.text();
                         console.error("Status update error response:", errorText);
                         update({ error: `Server error (${res.status}). Check console.`, loading: false });
+                        onSync(true);
 
                       } catch (err) {
                         console.error("Status update execution error:", err);
                         update({ error: "Connection error: " + err.message, loading: false });
+                        onSync(false);
                       }
                     }}
                     style={{ flex: 1, padding: "13px", borderRadius: 11, border: "none", background: C.accent, color: C.white, fontWeight: 700, fontSize: 14, cursor: "pointer", opacity: (loading || !status) ? 0.4 : 1 }}>
@@ -696,13 +661,13 @@ function OperatorPage({ state, setState }) {
                   localStorage.removeItem("printech_emp_id");
                   setState(prev => ({
                     ...prev,
-                    step: 1, authMode: "id", empId: "", jobLookupNumber: "", jobCard: "", machine: "", status: "", apiToken: "", scannerActive: false, scanError: ""
+                    step: 1, authMode: "id", empId: "", jobLookupNumber: "", jobCard: "", machine: "", status: "", apiToken: "", scannerActive: false, scanError: "", error: "", currentJobData: null, selectedMachineObj: null
                   }));
                   setQrAuthDone(false);
                   setQrJobDone(false);
                 }}
-                  style={{ padding: "12px 28px", borderRadius: 11, border: `1.5px solid ${C.accent}`, background: C.white, color: C.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-                  New Entry
+                  style={{ padding: "16px 32px", borderRadius: 12, border: "none", background: C.accent, color: C.white, fontWeight: 800, fontSize: 16, cursor: "pointer", boxShadow: "0 4px 12px rgba(45, 125, 79, 0.3)" }}>
+                  COMPLETE & LOGOUT →
                 </button>
               </div>
             )}
@@ -714,14 +679,44 @@ function OperatorPage({ state, setState }) {
 }
 
 /* ── JOB LOOKUP PAGE ────────────────────────────────────────── */
-function JobLookupPage({ empId, apiToken }) {
+function JobLookupPage({ empId, apiToken, onSync, triggerLookup }) {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState(null);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [scannerActive, setScannerActive] = useState(false);
   const [scanError, setScanError] = useState("");
+  const inputRef = useRef(null);
+
+  // Sticky Focus Helper
+  const stickyFocus = (ref) => {
+    setTimeout(() => {
+      if (ref.current && document.activeElement !== ref.current) {
+        ref.current.focus();
+      }
+    }, 150);
+  };
+
+  // Keep focus on mount
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  // Handle Global Scans routed to this page
+  useEffect(() => {
+    if (triggerLookup) {
+      setQuery(triggerLookup);
+      // Wait for React to mount state before triggering search
+      setTimeout(() => search(triggerLookup), 50);
+    }
+  }, [triggerLookup]);
+
+  // Auto-fetch when query hits 6 digits
+  useEffect(() => {
+    if (query.trim().length === 6 && !loading && !searched) {
+      search(query);
+    }
+  }, [query]);
 
   const search = async (qOverride) => {
     const q = (qOverride || query).trim().toUpperCase();
@@ -746,15 +741,17 @@ function JobLookupPage({ empId, apiToken }) {
 
       if (data.status === 1 || data.job_card_id) {
         setResult(data.data || data);
+        onSync(true);
       } else {
         setResult(null);
         setError(data.msg || "Job not found");
+        onSync(true);
       }
     } catch (err) {
       setError("Connection error");
+      onSync(false);
     } finally {
       setLoading(false);
-      setScannerActive(false);
     }
   };
 
@@ -823,29 +820,23 @@ function JobLookupPage({ empId, apiToken }) {
             <div style={{ fontSize: 15, fontWeight: 700, color: C.text, fontFamily: "'Lora',serif", marginBottom: 16 }}>Scan or Enter Job Card</div>
             {!empId && <div style={{ fontSize: 11, color: "#c05c00", marginBottom: 12, background: "#fff8f2", padding: "8px", borderRadius: 6 }}>NOTE: Using Manager Override for Lookup</div>}
 
-            {scannerActive && (
-              <div style={{ marginBottom: 20, border: `2px solid ${C.accent}`, borderRadius: 14, padding: "16px", background: C.white }}>
-                <div style={{ height: 240, background: "#000", borderRadius: 10, overflow: "hidden", position: "relative" }}>
-                  <Scanner onScan={res => res?.[0] && handleQRScan(res[0].rawValue)} onError={e => setScanError("Camera access failed.")} />
-                  <div style={{ position: "absolute", top: 12, right: 12, background: "rgba(0,0,0,0.5)", color: "#fff", padding: "4px 8px", borderRadius: 6, fontSize: 10 }}>SCANNING...</div>
-                </div>
-                {scanError && <div style={{ color: "#d93025", fontSize: 12, marginTop: 10, fontWeight: 600 }}>⚠ {scanError}</div>}
-                <button onClick={() => setScannerActive(false)} style={{ marginTop: 12, width: "100%", padding: "8px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Cancel Scan</button>
-              </div>
-            )}
 
-            <div style={{ display: "flex", gap: 10 }}>
-              <div style={{ flex: 1 }}>
-                <Input label="JOB CARD NUMBER" placeholder="e.g. 260099" value={query} onChange={v => { setQuery(v); setSearched(false); setResult(null); }} mono />
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.muted, letterSpacing: 0.8, fontFamily: "'DM Mono',monospace" }}>JOB CARD NUMBER</label>
+                  <input ref={inputRef} value={query} onChange={e => { setQuery(e.target.value); setSearched(false); setResult(null); }} placeholder="Scan / Enter" 
+                    onBlur={() => stickyFocus(inputRef)}
+                    onKeyDown={e => e.key === 'Enter' && search()}
+                    style={{ border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", fontSize: 15.5, fontFamily: "'DM Mono',monospace", color: C.text, background: C.white, outline: "none", transition: "border 0.2s", width: "100%" }}
+                    onFocus={e => e.target.style.border = `1.5px solid ${C.accent}`}
+                  />
+                </div>
+                <button disabled={loading} onClick={() => search()}
+                  style={{ alignSelf: "flex-end", padding: "13px 22px", borderRadius: 10, border: "none", background: C.accent, color: C.white, fontWeight: 700, fontSize: 14, cursor: "pointer", whiteSpace: "nowrap", opacity: loading ? 0.6 : 1, height: 49 }}>
+                  {loading ? "..." : "◎ Search"}
+                </button>
               </div>
-              <button disabled={loading} onClick={() => search()}
-                style={{ alignSelf: "flex-end", padding: "11px 22px", borderRadius: 10, border: "none", background: C.accent, color: C.white, fontWeight: 700, fontSize: 14, cursor: "pointer", whiteSpace: "nowrap", opacity: loading ? 0.6 : 1 }}>
-                {loading ? "..." : "◎ Search"}
-              </button>
-              <button onClick={() => { setScannerActive(true); setScanError(""); }}
-                style={{ alignSelf: "flex-end", padding: "11px 16px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: scannerActive ? C.accentLt : C.white, color: scannerActive ? C.accent : C.muted, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
-                QR
-              </button>
             </div>
             <div style={{ color: C.muted, fontSize: 11, marginTop: 8, fontFamily: "'DM Mono',monospace" }}>Enter job card number to view live status</div>
           </div>
@@ -932,7 +923,9 @@ function JobLookupPage({ empId, apiToken }) {
                       </thead>
                       <tbody>
                         {result.machineWoList.map((m, idx) => {
-                          const isLive = (m.status || "OnGoing").toLowerCase().includes("going") || (m.status || "OnGoing").toLowerCase().includes("progress");
+                          const jobFinished = (result.workorder_status || result.workOrderSts || result.status) >= 3;
+                          const currentStatus = m.status || (jobFinished ? "Completed" : "Pending");
+                          const isLive = !jobFinished && (currentStatus.toLowerCase().includes("going") || currentStatus.toLowerCase().includes("progress"));
                           return (
                             <tr key={idx} style={{ borderBottom: `1px solid #f0f0f0` }}>
                               <td style={{ padding: "12px", fontSize: 12, color: C.muted, fontFamily: "'DM Mono',monospace" }}>{idx + 1}</td>
@@ -944,7 +937,7 @@ function JobLookupPage({ empId, apiToken }) {
                                   {isLive && (
                                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", animation: "pulse 1.5s infinite" }} />
                                   )}
-                                  {m.status || "OnGoing"}
+                                  {currentStatus}
                                 </div>
                               </td>
                             </tr>
@@ -967,7 +960,7 @@ function JobLookupPage({ empId, apiToken }) {
 
 /* ── ROOT ──────────────────────────────────────────────────── */
 // Set this to true to prevent sending data to the live database
-window.PRINTECH_DEV_MODE = true;
+window.PRINTECH_DEV_MODE = false;
 
 export default function App() {
   const [active, setActive] = useState("operator");
@@ -988,6 +981,85 @@ export default function App() {
     selectedMachineObj: null,
     apiToken: ""
   });
+
+  const [isOnline, setIsOnline] = useState(true);
+  const [lastSync, setLastSync] = useState("just now");
+  const [scanAlert, setScanAlert] = useState("");
+  const scanBuffer = useRef("");
+  const lastKeyTime = useRef(0);
+
+  const handleSync = (online) => {
+    setIsOnline(online);
+    if (online) {
+      setLastSync(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
+    }
+  };
+
+  const handleGlobalClick = () => {
+    // We use a small timeout to let the browser finish any click/blur processing
+    setTimeout(() => {
+      if (active === "operator") {
+        const step = state.step;
+        const empInput = document.getElementById("operator-emp-input");
+        const jobInput = document.getElementById("operator-job-input");
+        
+        // Only snap focus if we are in Step 1 or 2 and the focus isn't already there
+        if (step === 1 && document.activeElement !== empInput) empInput?.focus();
+        if (step === 2 && document.activeElement !== jobInput) jobInput?.focus();
+      }
+    }, 50);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const now = Date.now();
+      // Reset buffer if delay > 100ms (standard for fast hardware scanners)
+      if (now - lastKeyTime.current > 100) scanBuffer.current = "";
+      lastKeyTime.current = now;
+
+      if (e.key === "Enter") {
+        const val = scanBuffer.current.trim().toUpperCase();
+        scanBuffer.current = "";
+        if (!val) return;
+
+        // 1. ROUTE EMPLOYEE BADGES
+        if (val.startsWith("EMP") && val.length >= 4) {
+          setActive("operator");
+          setState(prev => ({ ...prev, step: 2, empId: val }));
+          localStorage.setItem("printech_emp_id", val);
+          return;
+        }
+
+        // 2. ROUTE JOB CARDS (6 Digits)
+        if (/^\d{6}$/.test(val)) {
+          // If we ARE an operator and already logged in, stay in Operator Entry
+          if (active === "operator" && state.empId) {
+            setState(prev => ({ ...prev, jobLookupNumber: val }));
+          } else {
+            // Otherwise, switch to Job Lookup
+            setActive("jobview");
+            // Set a special flag to trigger search in JobLookupPage
+            setState(prev => ({ ...prev, jobLookupNumber: val, triggerLookup: true }));
+          }
+          return;
+        }
+
+        // 3. INVALID CODES
+        setScanAlert("Invalid QR Code: " + val);
+        setTimeout(() => setScanAlert(""), 3000);
+      } else if (e.key.length === 1) {
+        scanBuffer.current += e.key;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [active, state.empId]);
+
+  useEffect(() => {
+    window.addEventListener("mouseup", handleGlobalClick);
+    return () => window.removeEventListener("mouseup", handleGlobalClick);
+  }, [active, state.step]);
 
 
   return (
@@ -1018,14 +1090,24 @@ export default function App() {
         }
       `}</style>
 
-      <Sidebar active={active} setActive={setActive} />
+      <Sidebar active={active} setActive={setActive} isOnline={isOnline} lastSync={lastSync} />
 
-      <div style={{ flex: 1, overflowY: "auto", minHeight: "100vh" }}>
+      <div style={{ flex: 1, overflowY: "auto", minHeight: "100vh", position: "relative" }}>
+        {/* Invalid QR Toast */}
+        {scanAlert && (
+          <div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", background: "#dc2626", color: "#fff", padding: "12px 24px", borderRadius: 12, fontWeight: 800, zIndex: 99999, boxShadow: "0 10px 30px rgba(0,0,0,0.3)", display: "flex", gap: 10, alignItems: "center", animation: "slideDown 0.3s ease" }}>
+            <span style={{ fontSize: 20 }}>⚠</span> {scanAlert}
+          </div>
+        )}
+        <style>{`
+          @keyframes slideDown { from { top: -60px; opacity: 0; } to { top: 20px; opacity: 1; } }
+        `}</style>
+
         <div style={{ display: active === "operator" ? "block" : "none", height: "100%" }}>
-          <OperatorPage state={state} setState={setState} />
+          <OperatorPage state={state} setState={setState} onSync={handleSync} />
         </div>
         <div style={{ display: active === "jobview" ? "block" : "none", height: "100%" }}>
-          <JobLookupPage empId={state.empId} apiToken={state.apiToken} />
+          <JobLookupPage empId={state.empId} apiToken={state.apiToken} onSync={handleSync} triggerLookup={state.triggerLookup && state.jobLookupNumber} />
         </div>
       </div>
     </div>

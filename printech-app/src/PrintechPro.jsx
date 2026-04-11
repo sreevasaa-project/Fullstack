@@ -818,7 +818,6 @@ function JobLookupPage({ empId, apiToken, onSync, triggerLookup }) {
           <div style={{ height: 4, background: `linear-gradient(90deg, ${C.accent}, ${C.accentMid})` }} />
           <div style={{ padding: "24px 28px" }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.text, fontFamily: "'Lora',serif", marginBottom: 16 }}>Scan or Enter Job Card</div>
-            {!empId && <div style={{ fontSize: 11, color: "#c05c00", marginBottom: 12, background: "#fff8f2", padding: "8px", borderRadius: 6 }}>NOTE: Using Manager Override for Lookup</div>}
 
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

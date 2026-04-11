@@ -1,4 +1,4 @@
-# ▣ Sree Vasa Printech — Pro-Flow System
+# Sree Vasa Printech — Pro-Flow System
 
 A premium, high-efficiency production tracking system designed for printing operations. This application streamlines the workflow between operators and managers through real-time job card tracking and QR code integration.
 
